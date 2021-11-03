@@ -1,0 +1,227 @@
+Fresh Raspberry Pie
+ 
+Ingredients:
+CanaKit Raspberry Pi 4 4GB Starter Kit – Amazon https://www.amazon.com/dp/B07V5JTMV9/ref=cm_sw_em_r_mt_dp_U_NC8IDbEV91AT4
+BalenaEtcher to flash sd card image - https://www.balena.io/etcher/
+Raspbian image file – “Raspbian Buster with desktop” - https://www.raspberrypi.org/downloads/raspbian/
+	Optionally download image file via torrent – recommend https://www.tixati.com/download/windows64.html
+		https://downloads.raspberrypi.org/raspbian_latest.torrent
+Real VNC for remote desktop access - https://www.realvnc.com/en/connect/download/viewer/windows/
+
+Directions:
+Assemble Raspberry Pi kit
+Flash image to sd card
+Connect Raspberry Pi to keyboard, mouse, monitor, and network and power on.
+	Optionally connect to wi-fi.
+Run command:
+	sudo raspi-config
+		change default password. Default user “pi” is “raspberry”
+		change host name. i.e pi0018. Default host name is “raspberrypi”
+		set desktop to autologin
+		enable ssh
+		enable vnc
+Using combination of web sites for rest of configuration. Two main sites referenced are https://pimylifeup.com/raspberry-pi-kiosk/ and https://blockdev.io/raspberry-pi-2-and-3-chromium-in-kiosk-mode/
+Run commands:
+	sudo apt-get remove --purge wolfram-engine scratch scratch2 nuscratch sonic-pi idle3 smartsim java-common minecraft-pi libreoffice* python-minecraftpi python3-minecraftpi libreoffice python3-thonny geany claws-mail bluej greenfoot
+	sudo apt-get update
+	sudo apt-get upgrade
+	sudo apt-get dist-upgrade
+	sudo apt autoremove
+Reboot raspberry pi.
+	sudo shutdown -r now
+Copy file to raspberry pi and set Compass_TV_Graphic.png as desktop background.
+Run commands:
+	sudo apt-get install xdotool unclutter sed chromium-browser
+
+**NOTE for Tableau ** - create a shared link URL, then modify the link - after "embed=y:&" add the following: "refresh=yes&:tabs=no&:toolbar=no&:"
+
+Create bash script “kiosk.sh”
+	Run commands:
+	nano /home/pi/kiosk.sh
+		#!/bin/bash
+		
+		xset s noblank
+		xset s off
+		xset -dpms
+		
+		unclutter -idle 0.5 -root &
+		
+		sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' /home/pi/.config/chromium/Default/Preferences
+		sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' /home/pi/.config/chromium/Default/Preferences
+
+		# wait for wi-fi or network to connect
+		sleep 30
+
+		/usr/bin/chromium-browser --disable-extensions --disable-plugins --noerrdialogs --disable-infobars --kiosk 'http://chboohrepord0418:8000/views/TV-CustomerSatisficationFulfillment/CustomerSatisfaction?iframeSizedToWindow=true&:embed=y&:refresh=yes&:tabs=no&:toolbar=no&:showAppBanner=false&:display_count=no&:showVizHome=no&:origin=viz_share_link' &
+
+		# wait for initial tableau pages to load
+		sleep 20
+	
+		# enter credentials
+		xdotool type 'UserName'
+		sleep 1
+		xdotool key Tab
+		sleep 1
+		xdotool type 'password'
+		sleep 1
+		xdotool key Return
+
+		# refresh the dislay once every 3 hours 30 minutes to stay signed into Tableau. cron job will reboot pi every day at 6:30am
+		while true; do
+		  sleep 30m 3h
+		  xdotool key F5
+		done
+
+Edit autostart:
+	Run commands:
+		sudo nano /etc/xdg/lxsession/LXDE-pi/autostart
+			@lxpanel --profile LXDE-pi
+			@pcmanfm --desktop --profile LXDE-pi
+			@xscreensaver -no-splash
+			point-rpi
+			
+			@sh /home/pi/kiosk.sh
+			
+			
+Set kiosk.sh bash script as executable
+	Run command:
+		sudo chmod +x /home/pi/kiosk.sh
+
+Create cron job to reboot raspberry pi once a day at 6:30am - http://www.vk3erw.com/index.php/16-software/58-raspberry-pi-how-to-periodic-reboot-via-cron and https://www.geeksforgeeks.org/crontab-in-linux-with-examples/
+	Run command:
+		sudo nano /etc/cron.d/mycron
+			# m h dom mon dow user command
+			30 06 * * * root /sbin/shutdown -r now
+			
+
+
+Above instructions for single URL web site.
+Additional information for mutliple URL's in a single page:
+modified kiosk.sh:
+		#!/bin/bash
+
+		xset s noblank
+		xset s off
+		xset -dpms
+
+		unclutter -idle 0.5 -root &
+
+		sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' /home/pi/.config/chromium/Default/Preferences
+		sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' /home/pi/.config/chromium/Default/Preferences
+
+		# wait for wi-fi or network to connect
+		sleep 30
+
+		/usr/bin/chromium-browser --disable-extensions --disable-plugins --noerrdialogs --disable-infobars --kiosk 'file:///home/pi/twobytwo.html' &
+
+		# wait for initial tableau pages to load
+		sleep 20
+
+		# select button to log in
+		 xdotool key Tab
+		sleep 1
+		 xdotool key Return
+
+		# wait for login screen to load
+		sleep 15
+
+		 xdotool type 'UserName'
+		sleep 1
+		 xdotool key Tab
+		sleep 1
+		 xdotool type 'password'
+		sleep 1
+		 xdotool key Return
+
+		# wait for first page to load, then F5 to refresh page logs into all 4 pages
+		sleep 20
+		 xdotool key F5
+
+
+		# refresh the dislay once every 3 hours 30 minutes to stay signed into Tableau. cron job will reboot pi every day at 6:30am
+		while true; do
+		  sleep 30m 3h
+		  xdotool key F5
+		done
+		
+copy twobytwo.html file to /home/pi
+		<!DOCTYPE html>
+		<html>
+		<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<style>
+		* {
+		  box-sizing: border-box;
+		}
+
+
+		.column {
+		  float: left;
+		  width: 50%;
+		  padding: 0;
+		 border:solid 1px #000;
+		  height: 1070px; /* This could be a problem - 1070 for 4K 530 for 1080 */
+		}
+
+		.row:after {
+		  content: "";
+		  display: table;
+		  clear: both;
+		}
+
+		/* Responsive layout - makes the two columns stack on top of each other instead of next to each other */
+		@media screen and (max-width: 600px) {
+		  .column {
+			width: 100%;
+		  }
+		}
+		</style>
+		</head>
+		<body>
+		<div class="row">
+		  <div class="column" style="background-color:#fff;">
+			<iframe src="http://chbohrepord0418:8000/views/CompassSalesPerformanceforTS/CompassSalesPerformance?iframeSizedToWindow=true&:embed=y&:refresh=yes&:tabs=no&:toolbar=no&:showAppBanner=false&:display_count=no&:showVizHome=no&:origin=viz_share_link" width="100%" height="100%" frameborder="0" style="margin:0;padding:0;"></iframe>
+		  </div>
+		  <div class="column" style="background-color:#fff;">
+			<iframe src="http://chbohrepord0418:8000/views/NegativeContributionMarginTransaction/LowMarginContributionTransaction?iframeSizedToWindow=true&:embed=y&:refresh=yes&:tabs=no&:toolbar=no&:showAppBanner=false&:display_count=no&:showVizHome=no&:origin=viz_share_link" width="100%" height="100%" frameborder="0" style="margin:0;padding:0;"></iframe>
+		  </div>
+		</div>
+		<div class="row">
+		  <div class="column" style="background-color:#fff;">
+			<iframe src="http://chbohrepord0418:8000/views/HMESalesGrowthDeclinesandPipelineHealth/SalesGrowthDeclinesPipelineHealth?iframeSizedToWindow=true&:embed=y&:refresh=yes&:tabs=no&:toolbar=no&:showAppBanner=false&:display_count=no&:showVizHome=no&:origin=viz_share_link" width="100%" height="100%" frameborder="0" style="margin:0;padding:0;"></iframe>
+		  </div>
+		  <div class="column" style="background-color:#fff;">
+			<iframe src="http://chbohrepord0418:8000/views/HMECustomerEngagement-Update/HMECustomerEngagement?iframeSizedToWindow=true&:embed=y&:refresh=yes&:tabs=no&:toolbar=no&:showAppBanner=false&:display_count=no&:showVizHome=no&:origin=viz_share_link" width="100%" height="100%" frameborder="0" style="margin:0;padding:0;"></iframe>
+		  </div>
+		</div>
+		</body>
+		</html>
+
+
+How to duplicate sd cards from master and distribute to additional raspberry pi's:
+Guides found at https://www.cyberciti.biz/faq/linux-copy-clone-usb-stick-including-partitions/ and http://richardhayler.blogspot.com/2015/01/making-your-own-sd-card-clone-army.html
+Using linux workstation, create an image file from master sd card:
+	determine device and sector size:
+		lsblk
+		sudo fdsik -l /dev/sdb
+	create image file:
+		sudo dd if=/dev/sdb bs=512 of=/home/greg/Documents/pi001.img status=progress
+
+Using linux workstation clone image to sd card:
+	determine destination device:
+		lsblk
+	copy image to destination:
+		sudo dd if=/home/greg/Documents/pi001.img bs=512 of=/dev/sdc status=progress
+		
+Note: BalenaEtcher can use the image file created by linux workstation to deploy on a windows workstation.
+
+Additional steps to complete on the cloned destination raspberry pi before using in production:
+	Boot raspberry pi.
+	After kiosk web site launches, close browser. [alt-F4] You might see an error message when the brower launches the first time.
+	Clean the chromium profile created by the master image. https://askubuntu.com/questions/476918/google-chrome-wont-start-after-changing-hostname
+		rm -rf ~/.config/chromium/Singleton*
+	Run configuration script to change hostname:
+		sudo raspi-config 
+			Change the hostname. i.e. pi0001 to pi0002 or other hostname as needed.
+
+
